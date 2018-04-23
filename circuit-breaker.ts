@@ -15,16 +15,16 @@ export type Command = (success: () => void, failed: () => void) => void
 
 export type Fallback = () => void
 
-export enum CircuitBreakerStetus {
+export enum CircuitBreakerStatus {
   OPEN = 0,
   HALF_OPEN = 1,
   CLOSED = 2,
 }
 
 export default class CircuitBreaker {
-  static readonly OPEN = CircuitBreakerStetus.OPEN
-  static readonly HALF_OPEN = CircuitBreakerStetus.HALF_OPEN
-  static readonly CLOSED = CircuitBreakerStetus.CLOSED
+  static readonly OPEN = CircuitBreakerStatus.OPEN
+  static readonly HALF_OPEN = CircuitBreakerStatus.HALF_OPEN
+  static readonly CLOSED = CircuitBreakerStatus.CLOSED
 
   windowDuration: number
   numBuckets: number
@@ -35,8 +35,8 @@ export default class CircuitBreaker {
   onCircuitClose: (metrics: Metrics) => void
 
   _buckets: Bucket[]
-  _state: CircuitBreakerStetus | null
-  _forced: CircuitBreakerStetus | null
+  _state: CircuitBreakerStatus | null
+  _forced: CircuitBreakerStatus | null
 
   constructor(opts: {
     windowDuration?: number
