@@ -6,9 +6,9 @@
 ## Usage
 
 ```js
-var breaker = new CircuitBreaker();
+const breaker = new CircuitBreaker();
 
-var command = function() {
+const command = function() {
   return somePromise
 };
 
