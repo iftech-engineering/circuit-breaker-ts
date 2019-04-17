@@ -34,6 +34,15 @@ class CircuitWorkerTimeout extends Error {
   }
 }
 
+function wrapPromise<T>(fn: () => T | Promise<T>): Promise<T> {
+  try {
+    const ret = fn()
+    return Promise.resolve(ret)
+  } catch (e) {
+    return Promise.reject(e)
+  }
+}
+
 export default class CircuitBreaker {
   static readonly OPEN = CircuitBreakerStatus.OPEN
   static readonly HALF_OPEN = CircuitBreakerStatus.HALF_OPEN
@@ -158,14 +167,7 @@ export default class CircuitBreaker {
     }
 
     return new Promise((resolve, reject) => {
-      let prom: Promise<T>
-      try {
-        const ret = command()
-        prom = Promise.resolve(ret)
-      } catch (e) {
-        prom = Promise.reject(e)
-      }
-      prom.then(
+      wrapPromise(command).then(
         (result: T) => {
           if (!timeout) return
           increment('successes')()
