@@ -6,19 +6,13 @@
 ## Usage
 
 ```js
-var breaker = new CircuitBreaker();
+const breaker = new CircuitBreaker();
 
-var command = function(success, failed) {
-  restCall()
-    .done(success)
-    .fail(failed);
+const command = function() {
+  return somePromise
 };
 
-var fallback = function() {
-  alert("Service is down");
-};
-
-breaker.run(command, fallback);
+breaker.run(command);
 ```
 
 
@@ -76,9 +70,9 @@ Function that is run whenever the circuit is closed (i.e. the service is back up
 *Default Value:* no-op
 
 
-### run(command, [fallback])
+### run(command)
 
-Runs a command if circuit is closed, otherwise defaults to a fallback if provided. The command is called with success and failure handlers which you need to call at the appropriate point in your command. For example, if an ajax request succeeds the the success function should be called to notify the breaker. If neither success or failed are called then the command it's assumed the command timed out.
+Runs a command if circuit is closed, otherwise return a promise reject. The command should return a value or a promise. For example, if an ajax request succeeds then the promise returned should be resolved to notify the breaker. If the promise returned is not resolved within timeout threshold then the command it's assumed executing timed out.
 
 ### isOpen
 

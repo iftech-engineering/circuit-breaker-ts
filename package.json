@@ -1,7 +1,7 @@
 {
   "name": "circuit-breaker-ts",
   "description": "Hystrix-like circuit breaker for TypeScript.",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "license": "MIT",
   "author": "RenzHoly<renzholy@gmail.com>",
   "repository": {
@@ -22,5 +22,6 @@
     "build": "npm run clean && npm run compile",
     "prepublishOnly": "npm run build",
     "test": "npm run compile && jasmine dist/spec/*.js"
-  }
+  },
+  "dependencies": {}
 }

@@ -11,7 +11,7 @@ export type Metrics = {
   errorPercentage: number
 }
 
-export type Command = (success: () => void, failed: () => void) => void
+export type Command<T> = () => Promise<T> | T
 
 export type Fallback = () => void
 
@@ -19,6 +19,28 @@ export enum CircuitBreakerStatus {
   OPEN = 0,
   HALF_OPEN = 1,
   CLOSED = 2,
+}
+
+export class CircuitOpenError extends Error {
+  name = 'CIRCUIT_OPEN'
+  constructor(msg: string = 'Circuit Open') {
+    super(msg)
+  }
+}
+class CircuitWorkerTimeout extends Error {
+  name = 'CIRCUIT_WORKER_TIMEOUT'
+  constructor(msg: string = 'Circuit worker timeout') {
+    super(msg)
+  }
+}
+
+function wrapPromise<T>(fn: () => T | Promise<T>): Promise<T> {
+  try {
+    const ret = fn()
+    return Promise.resolve(ret)
+  } catch (e) {
+    return Promise.reject(e)
+  }
 }
 
 export default class CircuitBreaker {
@@ -62,12 +84,13 @@ export default class CircuitBreaker {
     this._startTicker()
   }
 
-  run(command: Command, fallback?: Fallback): void {
+  async run<T>(command: Command<T>): Promise<T> {
     if (this.isOpen()) {
-      this._executeFallback(fallback || function () { })
+      this._incrementShortCircuits()
+      throw new CircuitOpenError()
     }
     else {
-      this._executeCommand(command)
+      return this._executeCommand(command)
     }
   }
 
@@ -124,14 +147,13 @@ export default class CircuitBreaker {
     return this._buckets[this._buckets.length - 1]
   }
 
-  _executeCommand(command: Command): void {
+  
+  _executeCommand<T>(command: Command<T>): Promise<T> {
     const self = this
     let timeout: number | null
 
-    function increment(prop: 'successes' | 'failures' | 'timeouts') {
-      return function () {
-        if (!timeout) { return }
-
+    function increment<P extends 'successes' | 'failures' | 'timeouts'>(prop: P) {
+      return function() {
         const bucket = self._lastBucket()
         bucket[prop]++
 
@@ -139,19 +161,34 @@ export default class CircuitBreaker {
           self._updateState()
         }
 
-        clearTimeout(timeout)
+        clearTimeout(timeout!)
         timeout = null
       }
     }
 
-    timeout = setTimeout(increment('timeouts'), this.timeoutDuration)
+    return new Promise((resolve, reject) => {
+      wrapPromise(command).then(
+        (result: T) => {
+          if (!timeout) return
+          increment('successes')()
+          resolve(result)
+        },
+        (reason: any) => {
+          if (!timeout) return
+          increment('failures')()
+          reject(reason)
+        },
+      )
 
-    command(increment('successes'), increment('failures'))
+      timeout = setTimeout(() => {
+        if (!timeout) return
+        increment('timeouts')()
+        reject(new CircuitWorkerTimeout())
+      }, this.timeoutDuration)
+    })
   }
 
-  _executeFallback(fallback: Fallback): void {
-    fallback()
-
+  _incrementShortCircuits(): void {
     const bucket = this._lastBucket()
     bucket.shortCircuits++
   }
