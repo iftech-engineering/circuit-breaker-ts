@@ -106,11 +106,5 @@ npm install
 Run the tests with:
 
 ```sh
-grunt test
-```
-
-or
-
-```sh
-grunt test:browser
+npm test
 ```

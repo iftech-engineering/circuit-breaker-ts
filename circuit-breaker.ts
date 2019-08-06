@@ -59,6 +59,7 @@ export default class CircuitBreaker {
   _buckets: Bucket[]
   _state: CircuitBreakerStatus | null
   _forced: CircuitBreakerStatus | null
+  _interval: number
 
   constructor(opts: {
     windowDuration?: number
@@ -113,6 +114,10 @@ export default class CircuitBreaker {
     return this._state == CircuitBreaker.OPEN
   }
 
+  destroy(): void {
+    clearInterval(this._interval);
+  }
+
   _startTicker(): void {
     const self = this
     let bucketIndex = 0
@@ -136,7 +141,7 @@ export default class CircuitBreaker {
       self._buckets.push(self._createBucket())
     }
 
-    setInterval(tick, bucketDuration)
+    this._interval = setInterval(tick, bucketDuration)
   }
 
   _createBucket(): Bucket {
@@ -217,6 +222,7 @@ export default class CircuitBreaker {
 
       if (lastCommandFailed) {
         this._state = CircuitBreaker.OPEN
+        this.onCircuitOpen(metrics)
       }
       else {
         this._state = CircuitBreaker.CLOSED
