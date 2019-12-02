@@ -2,6 +2,7 @@ export type Bucket = {
   failures: number
   successes: number
   timeouts: number
+  ignores: number,
   shortCircuits: number
 }
 
@@ -55,6 +56,7 @@ export default class CircuitBreaker {
   volumeThreshold: number
   onCircuitOpen: (metrics: Metrics) => void
   onCircuitClose: (metrics: Metrics) => void
+  circuitFilter: (err: any) => boolean
 
   _buckets: Bucket[]
   _state: CircuitBreakerStatus | null
@@ -69,6 +71,7 @@ export default class CircuitBreaker {
     volumeThreshold?: number
     onCircuitOpen?: (metrics: Metrics) => void
     onCircuitClose?: (metrics: Metrics) => void
+    circuitFilter?: (err: any) => boolean
   } = {}) {
     this.windowDuration = opts.windowDuration || 10000  // milliseconds
     this.numBuckets = opts.numBuckets || 10             // number
@@ -78,6 +81,9 @@ export default class CircuitBreaker {
 
     this.onCircuitOpen = opts.onCircuitOpen || function () { }
     this.onCircuitClose = opts.onCircuitClose || function () { }
+    this.circuitFilter = opts.circuitFilter || function () {
+      return true
+    }
 
     this._buckets = [this._createBucket()]
     this._state = CircuitBreaker.CLOSED
@@ -115,7 +121,7 @@ export default class CircuitBreaker {
   }
 
   destroy(): void {
-    clearInterval(this._interval);
+    clearInterval(this._interval)
   }
 
   _startTicker(): void {
@@ -145,7 +151,7 @@ export default class CircuitBreaker {
   }
 
   _createBucket(): Bucket {
-    return { failures: 0, successes: 0, timeouts: 0, shortCircuits: 0 }
+    return { failures: 0, successes: 0, timeouts: 0, shortCircuits: 0, ignores: 0 }
   }
 
   _lastBucket(): Bucket {
@@ -157,7 +163,7 @@ export default class CircuitBreaker {
     const self = this
     let timeout: number | null
 
-    function increment<P extends 'successes' | 'failures' | 'timeouts'>(prop: P) {
+    function increment<P extends 'successes' | 'failures' | 'timeouts' | 'ignores'>(prop: P) {
       return function() {
         const bucket = self._lastBucket()
         bucket[prop]++
@@ -180,7 +186,11 @@ export default class CircuitBreaker {
         },
         (reason: any) => {
           if (!timeout) return
-          increment('failures')()
+          if (!this.circuitFilter(reason)) {
+            increment('ignores')()
+          } else {
+            increment('failures')()
+          }
           reject(reason)
         },
       )
